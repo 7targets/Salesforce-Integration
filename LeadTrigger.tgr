@@ -1,0 +1,19 @@
+trigger LeadTrigger on Lead (after update) {
+    // Define the API names of the fields that, when updated, trigger the integration
+    private static final Set<String> TRIGGER_FIELDS = new Set<String>{'sts_Assistant_Email__c', 'sts_Sequence_Name__c'};
+
+    List<Lead> updatedLeads = new List<Lead>();
+
+    for (Lead newLead : Trigger.new) {
+        Lead oldLead = Trigger.oldMap.get(newLead.Id);
+        System.debug('Trigger Activated');
+        // Check if any of the trigger fields have been updated
+        for (String field : TRIGGER_FIELDS) {
+            if (newLead.get(field) != oldLead.get(field)) {
+                // updatedLeads.add(newLead);
+                SevenTargetsLeadIntegration.AddLeadToSevenTargets(newLead.Id);
+                break; // Break out of the loop if any field is updated
+            }
+        }
+    }
+}
