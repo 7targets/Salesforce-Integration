@@ -20,7 +20,7 @@ public class SevenTargetsLeadIntegration {
         HttpResponse tokenResponse = tokenHttp.send(tokenRequest);
         String accessToken; 
 
-        if (tokenResponse.getStatusCode() == 200) {
+        if (tokenResponse.getStatusCode() == 201) {
             accessToken = (String)((Map<String, Object>)JSON.deserializeUntyped(tokenResponse.getBody())).get('access_token');
         } else {
             System.debug('Error obtaining access token. Status code: ' + tokenResponse.getStatusCode());
