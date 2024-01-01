@@ -4,8 +4,9 @@ public class SevenTargetsLeadIntegration {
     private static final String TOKEN_ENDPOINT = 'https://login-qa.7targets.com/oauth2/token';
 
     private static String refreshToken() {
-        Seven_Targets_API__c stc = [select Name, Seven_Targets_Client_Id__c, Seven_Targets_Client_Secret__c from seven_targets_api__c limit 1];
+        Seven_Targets_API_Auth__mdt stc = [select Seven_Targets_Client_Id__c, Seven_Targets_Client_Secret__c from Seven_Targets_API_Auth__mdt limit 1];
 
+        
         String idSecretString = stc.Seven_Targets_Client_Id__c + ':' + stc.Seven_Targets_Client_Secret__c;
         String encodedIdSecretString = EncodingUtil.base64Encode(Blob.valueOf(idSecretString));
 
@@ -20,7 +21,7 @@ public class SevenTargetsLeadIntegration {
         HttpResponse tokenResponse = tokenHttp.send(tokenRequest);
         String accessToken; 
 
-        if (tokenResponse.getStatusCode() == 201) {
+        if (tokenResponse.getStatusCode() == 200) {
             accessToken = (String)((Map<String, Object>)JSON.deserializeUntyped(tokenResponse.getBody())).get('access_token');
         } else {
             System.debug('Error obtaining access token. Status code: ' + tokenResponse.getStatusCode());
@@ -30,7 +31,7 @@ public class SevenTargetsLeadIntegration {
     }
 
     private static void addNoteToLead(String leadId, String title, String body) {
-        // Create a new Note record    
+        // Create a new Note record
         Note newNote = new Note();
         newNote.ParentId = leadId; // The Lead Id
         newNote.Title = title; // Set the title for the note
@@ -41,11 +42,11 @@ public class SevenTargetsLeadIntegration {
 
     @Future(callout=true)
     public static void AddLeadToSevenTargets(Id leadId) {
-        
+
         Lead leadRecord = [SELECT Id, FirstName, Phone, Email, Title, LastName, LeadSource, Street, City, State, Country, Industry, Company, Status, sts_Assistant_Email__c, sts_Sequence_Name__c, sts_state__c FROM Lead WHERE Id = :leadId];
         
         Map<String, Object> leadDataMap = new Map<String, Object>();
-        
+
         String location = '';
         if (leadRecord.Street != null) {
             location = location + leadRecord.Street + ', ';
@@ -70,42 +71,48 @@ public class SevenTargetsLeadIntegration {
         leadDataMap.put('scheduleName', leadRecord.sts_Sequence_Name__c);
         leadDataMap.put('phoneno', leadRecord.Phone);
         leadDataMap.put('assistantEmail', leadRecord.sts_Assistant_Email__c);
-        leadDataMap.put('source', leadRecord.LeadSource);
         leadDataMap.put('crm', 'SALESFORCE');
         leadDataMap.put('externalId', leadRecord.Id);
-        leadDataMap.put('state', leadRecord.sts_state__c);
-
-        // List<String> leadJsonList = new List<String>();
-        // for (Lead leadRecord: leads){
-        //    leadJsonList.add(JSON.serialize(leadRecord));
-        // }
         
-        // String leadsJsonArray = '[' + String.join(leadJsonList, ',') + ']';
         String accessToken = refreshToken();
-        String bearerToken = 'Bearer '+ accessToken;
-        HttpRequest request = new HttpRequest();
-        request.setEndpoint(API_ENDPOINT);
-        request.setMethod('POST');
-        request.setHeader('Content-Type', 'application/json');
-        request.setHeader('Authorization', bearerToken);
-        request.setHeader('7ts-user-identifier','936222e0-4098-4126-b7c7-feb8c159012f');
-        request.setBody(JSON.serialize(leadDataMap));
-        
-        Http http = new Http();
-        HttpResponse response = http.send(request);
-        
-        if (response.getStatusCode() == 200) {
-            System.debug('Leads successfully sent to the 7Targets API.');
-            String body = 'Thanks. I will start working on this lead. You can edit the message sequence or other details of this lead by clicking here: https://solution-qa.7targets.com/all-leads?id=' + leadRecord.Id;
-            String title = 'Lead Added';
-            addNoteToLead(leadRecord.Id, title, body);
-        } else {
-            System.debug('Error sending leads. Status code: ' + response.getStatusCode());
-            String error_response = response.getBody();
-            System.debug('Response body: ' + error_response);
-            String body = 'Failed to Add Lead ' + error_response;
-            String title = 'Failed To Add Lead';
-            addNoteToLead(leadRecord.Id, title, body);
+        if (String.isNotBlank(accessToken)){
+            String bearerToken = 'Bearer '+ accessToken;
+            HttpRequest request = new HttpRequest();
+
+            Seven_Targets_API_Auth__mdt st_uid = [select Seven_Targets_User_ID__c from Seven_Targets_API_Auth__mdt limit 1];
+            
+            request.setEndpoint(API_ENDPOINT);
+            request.setMethod('POST');
+            request.setHeader('Content-Type', 'application/json');
+            request.setHeader('Authorization', bearerToken);
+            request.setHeader('7ts-user-identifier', st_uid.Seven_Targets_User_ID__c);
+            request.setBody(JSON.serialize(leadDataMap));
+            
+            Http http = new Http();
+            HttpResponse response = http.send(request);
+            if (response.getStatusCode() == 201) {
+                System.debug('Leads successfully sent to the 7Targets API.');
+                Map<String, Object> responseMap = (Map<String, Object>)JSON.deserializeUntyped(response.getBody());
+                Integer sts_leadId = (Integer)responseMap.get('id');
+                String leadIdString = String.valueOf(sts_leadId);
+                String body = 'Thanks. I will start working on this lead. You can edit the message sequence or other details of this lead by clicking here: https://solution-qa.7targets.com/all-leads?id=' + leadIdString;
+                String title = 'Lead Created in 7Targets';
+                addNoteToLead(leadRecord.Id, title, body);
+            } else {
+                System.debug('Error sending leads. Status code: ' + response.getStatusCode());
+                String error_response = response.getBody();
+                System.debug('Response body: ' + error_response);
+                String body = 'Failed to Add Lead in 7Targets' + error_response;
+                String title = 'Failed To Add Lead in 7Targets';
+                addNoteToLead(leadRecord.Id, title, body);
+                // Remove Assistant & Sequence Names from Lead.
+                leadRecord.sts_Sequence_Name__c = null;
+                leadRecord.sts_Assistant_Email__c = null;
+
+                update leadRecord;
+            }
+            System.sleep(2000);
         }
+
     }
 }

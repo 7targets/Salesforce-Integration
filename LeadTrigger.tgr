@@ -1,4 +1,4 @@
-trigger LeadTrigger on Lead (after update) {
+trigger LeadTriggerFor7Targets on Lead (after update) {
     // Define the API names of the fields that, when updated, trigger the integration
     private static final Set<String> TRIGGER_FIELDS = new Set<String>{'sts_Assistant_Email__c', 'sts_Sequence_Name__c'};
 
