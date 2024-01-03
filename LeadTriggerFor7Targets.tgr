@@ -6,12 +6,11 @@ trigger LeadTriggerFor7Targets on Lead (after update) {
 
     for (Lead newLead : Trigger.new) {
         Lead oldLead = Trigger.oldMap.get(newLead.Id);
-        System.debug('Trigger Activated');
+        System.debug('LeadTriggerFor7Targets Triggered for Lead ' + String.valueOf(newLead.Id));
         // Check if any of the trigger fields have been updated
         for (String field : TRIGGER_FIELDS) {
             if (newLead.get(field) != oldLead.get(field)) {
-                // updatedLeads.add(newLead);
-                SevenTargetsLeadIntegration.AddLeadToSevenTargets(newLead.Id);
+                SevenTargetsLeadIntegration.salesforceToSevenTargets(newLead.Id);
                 break; // Break out of the loop if any field is updated
             }
         }
