@@ -44,7 +44,7 @@ public class SevenTargetsLeadIntegration {
     @Future(callout=true)
     public static void salesforceToSevenTargets(Id leadId) {
 
-        Lead leadRecord = [SELECT Id, FirstName, Phone, Email, Title, LastName, LeadSource, Street, City, State, Country, Industry, Company, Status, sts_Assistant_Email__c, sts_Sequence_Name__c, sts_state__c FROM Lead WHERE Id = :leadId];
+        Lead leadRecord = [SELECT Id, FirstName, Phone, Email, Title, LastName, LeadSource, Street, City, State, Country, Industry, Company, Status, sts_Assistant_Email__c, sts_Sequence_Name__c, sts_lead_state__c FROM Lead WHERE Id = :leadId];
         
         Map<String, Object> leadDataMap = new Map<String, Object>();
 
@@ -120,8 +120,8 @@ public class SevenTargetsLeadIntegration {
                     String body = 'Thanks. I will start working on this lead. You can edit the message sequence or other details of this lead by clicking here: ' + APP_LEAD_URL + leadIdString;
                     String title = 'Lead Created in 7Targets';
                     addNoteToLead(leadRecord.Id, title, body);
-                    String lead_state = (String)responseMap.get('sts_state__c');
-                    leadRecord.sts_state__c = lead_state;
+                    String lead_state = (String)responseMap.get('sts_lead_state__c');
+                    leadRecord.sts_lead_state__c = lead_state;
                     update leadRecord; // Only updating State to make sure it doesn't go in infinite loop
                 } else {
                     System.debug('Error Creating lead in 7Targets. Status code: ' + response.getStatusCode());
